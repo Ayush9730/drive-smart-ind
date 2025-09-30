@@ -1,24 +1,33 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Car, Calendar, MapPin, Users } from 'lucide-react';
+import { Car, Calendar, MapPin, Users, LogOut } from 'lucide-react';
 import { UserRegistration } from './UserRegistration';
 import { CarSelection } from './CarSelection';
 import { BookingForm } from './BookingForm';
 import { BookingConfirmation } from './BookingConfirmation';
 import { BookingsList } from './BookingsList';
+import { AuthForm } from './AuthForm';
 import { User, Car as CarType, Booking, Step } from '../types/rental';
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { useBookings } from '@/hooks/useBookings';
 
 export const CarRentalSystem = () => {
   const [currentStep, setCurrentStep] = useState<Step>('registration');
-  const [userData, setUserData] = useState<User | null>(null);
   const [selectedCar, setSelectedCar] = useState<CarType | null>(null);
   const [currentBooking, setCurrentBooking] = useState<Booking | null>(null);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [showAuth, setShowAuth] = useState(false);
+  
+  const { user, loading: authLoading, signOut, isAuthenticated } = useAuth();
+  const { profile, loading: profileLoading, saveProfile } = useProfile(user?.id);
+  const { bookings, loading: bookingsLoading, saveBooking } = useBookings(user?.id);
 
-  const handleUserRegistration = (user: User) => {
-    setUserData(user);
-    setCurrentStep('car-selection');
+  const handleUserRegistration = async (userData: User) => {
+    const success = await saveProfile(userData);
+    if (success) {
+      setCurrentStep('car-selection');
+    }
   };
 
   const handleCarSelection = (car: CarType) => {
@@ -26,15 +35,16 @@ export const CarRentalSystem = () => {
     setCurrentStep('booking-form');
   };
 
-  const handleBookingComplete = (booking: Booking) => {
-    setCurrentBooking(booking);
-    setBookings(prev => [...prev, booking]);
-    setCurrentStep('confirmation');
+  const handleBookingComplete = async (booking: Booking) => {
+    const success = await saveBooking(booking);
+    if (success) {
+      setCurrentBooking(booking);
+      setCurrentStep('confirmation');
+    }
   };
 
   const handleNewBooking = () => {
     setCurrentStep('registration');
-    setUserData(null);
     setSelectedCar(null);
     setCurrentBooking(null);
   };
@@ -51,13 +61,40 @@ export const CarRentalSystem = () => {
     setCurrentStep('car-selection');
   };
 
+  const handleAuthSuccess = () => {
+    setShowAuth(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setCurrentStep('registration');
+    setSelectedCar(null);
+    setCurrentBooking(null);
+  };
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl font-semibold">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth form if not authenticated
+  if (!isAuthenticated || showAuth) {
+    return <AuthForm onAuthSuccess={handleAuthSuccess} />;
+  }
+
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 'registration':
         return (
           <UserRegistration 
             onComplete={handleUserRegistration}
-            initialData={userData || undefined}
+            initialData={profile || undefined}
           />
         );
       
@@ -71,9 +108,9 @@ export const CarRentalSystem = () => {
         );
       
       case 'booking-form':
-        return userData && selectedCar ? (
+        return profile && selectedCar ? (
           <BookingForm 
-            user={userData}
+            user={profile}
             car={selectedCar}
             onComplete={handleBookingComplete}
             onBack={handleBackToCarSelection}
@@ -116,16 +153,27 @@ export const CarRentalSystem = () => {
               </div>
             </div>
             
-            {currentStep !== 'bookings-list' && bookings.length > 0 && (
+            <div className="flex items-center space-x-4">
+              {currentStep !== 'bookings-list' && bookings.length > 0 && (
+                <Button 
+                  variant="secondary"
+                  onClick={handleViewBookings}
+                  className="flex items-center space-x-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>View All Bookings ({bookings.length})</span>
+                </Button>
+              )}
+              
               <Button 
-                variant="secondary"
-                onClick={handleViewBookings}
+                variant="outline"
+                onClick={handleSignOut}
                 className="flex items-center space-x-2"
               >
-                <Calendar className="w-4 h-4" />
-                <span>View All Bookings ({bookings.length})</span>
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
               </Button>
-            )}
+            </div>
           </div>
         </div>
       </header>

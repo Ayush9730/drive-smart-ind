@@ -14,7 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bookings: {
+        Row: {
+          booking_date: string
+          booking_id: string
+          booking_time: string
+          car_base_price: number
+          car_category: string
+          car_id: string
+          car_name: string
+          car_passengers: number
+          car_price_per_km: number
+          created_at: string
+          deposit: number
+          distance: number
+          driver_charges: number
+          duration: number
+          end_date: string
+          from_city: string
+          id: string
+          need_driver: boolean
+          start_date: string
+          status: string
+          to_city: string
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          booking_date?: string
+          booking_id: string
+          booking_time?: string
+          car_base_price: number
+          car_category: string
+          car_id: string
+          car_name: string
+          car_passengers: number
+          car_price_per_km: number
+          created_at?: string
+          deposit: number
+          distance: number
+          driver_charges?: number
+          duration: number
+          end_date: string
+          from_city: string
+          id?: string
+          need_driver?: boolean
+          start_date: string
+          status?: string
+          to_city: string
+          total_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          booking_date?: string
+          booking_id?: string
+          booking_time?: string
+          car_base_price?: number
+          car_category?: string
+          car_id?: string
+          car_name?: string
+          car_passengers?: number
+          car_price_per_km?: number
+          created_at?: string
+          deposit?: number
+          distance?: number
+          driver_charges?: number
+          duration?: number
+          end_date?: string
+          from_city?: string
+          id?: string
+          need_driver?: boolean
+          start_date?: string
+          status?: string
+          to_city?: string
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          driving_license: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          driving_license: string
+          email: string
+          id?: string
+          name: string
+          phone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          driving_license?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
