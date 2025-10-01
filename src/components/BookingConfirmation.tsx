@@ -1,8 +1,11 @@
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Mail, Calendar, MapPin, Car, User, CreditCard } from 'lucide-react';
+import { CheckCircle, Mail, Calendar, MapPin, Car, User, CreditCard, Phone } from 'lucide-react';
 import { Booking } from '../types/rental';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface BookingConfirmationProps {
   booking: Booking;
@@ -11,6 +14,9 @@ interface BookingConfirmationProps {
 }
 
 export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: BookingConfirmationProps) => {
+  const { toast } = useToast();
+  const [smsStatus, setSmsStatus] = useState<'sending' | 'sent' | 'failed'>('sending');
+
   const simulateEmailSend = () => {
     // Simulate email sending
     console.log(`
@@ -45,9 +51,53 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
     `);
   };
 
-  // Simulate email sending on component mount
-  React.useEffect(() => {
+  const sendBookingSMS = async () => {
+    try {
+      console.log('Sending SMS to:', booking.user.phone);
+      
+      const { data, error } = await supabase.functions.invoke('send-booking-sms', {
+        body: {
+          phoneNumber: booking.user.phone,
+          bookingDetails: {
+            bookingId: booking.id,
+            carName: booking.car.name,
+            fromCity: booking.fromCity,
+            toCity: booking.toCity,
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            totalAmount: booking.totalAmount,
+            customerName: booking.user.name,
+          },
+        },
+      });
+
+      if (error) {
+        console.error('SMS sending error:', error);
+        setSmsStatus('failed');
+        toast({
+          variant: "destructive",
+          title: "SMS Failed",
+          description: "Failed to send booking confirmation SMS.",
+        });
+        return;
+      }
+
+      console.log('SMS sent successfully:', data);
+      setSmsStatus('sent');
+      toast({
+        title: "SMS Sent",
+        description: "Booking confirmation sent to your phone!",
+      });
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      setSmsStatus('failed');
+    }
+  };
+
+  // Send email and SMS on component mount
+  useEffect(() => {
     simulateEmailSend();
+    sendBookingSMS();
   }, []);
 
   return (
@@ -127,7 +177,7 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
       </Card>
 
       {/* Email Confirmation */}
-      <Card className="mb-6 bg-blue-50 border-blue-200">
+      <Card className="mb-4 bg-blue-50 border-blue-200">
         <CardContent className="p-4">
           <div className="flex items-center justify-center space-x-2 text-blue-700">
             <Mail className="w-5 h-5" />
@@ -135,6 +185,25 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
           </div>
           <p className="text-sm text-blue-600 mt-2">
             Please check your inbox for detailed booking information and pickup instructions.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* SMS Confirmation */}
+      <Card className={`mb-6 ${smsStatus === 'sent' ? 'bg-green-50 border-green-200' : smsStatus === 'failed' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
+        <CardContent className="p-4">
+          <div className={`flex items-center justify-center space-x-2 ${smsStatus === 'sent' ? 'text-green-700' : smsStatus === 'failed' ? 'text-red-700' : 'text-yellow-700'}`}>
+            <Phone className="w-5 h-5" />
+            <span className="font-medium">
+              {smsStatus === 'sending' && `Sending SMS to ${booking.user.phone}...`}
+              {smsStatus === 'sent' && `Booking confirmation SMS sent to ${booking.user.phone}`}
+              {smsStatus === 'failed' && `Failed to send SMS to ${booking.user.phone}`}
+            </span>
+          </div>
+          <p className={`text-sm mt-2 ${smsStatus === 'sent' ? 'text-green-600' : smsStatus === 'failed' ? 'text-red-600' : 'text-yellow-600'}`}>
+            {smsStatus === 'sending' && 'Please wait while we send your booking details...'}
+            {smsStatus === 'sent' && 'Check your phone for booking details and pickup information.'}
+            {smsStatus === 'failed' && 'Please contact us for booking details.'}
           </p>
         </CardContent>
       </Card>
@@ -152,6 +221,3 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
     </div>
   );
 };
-
-// Add React import for useEffect
-import React from 'react';
