@@ -34,17 +34,13 @@ serve(async (req) => {
 
     console.log('Sending SMS to:', phoneNumber);
 
-    // Format the SMS message
-    const message = `Car Rental Booking Confirmed!
-
-Booking ID: ${bookingDetails.bookingId}
-Customer: ${bookingDetails.customerName}
+    // Format the SMS message (shortened for trial account limits)
+    const message = `Booking Confirmed!
+ID: ${bookingDetails.bookingId}
 Car: ${bookingDetails.carName}
-Route: ${bookingDetails.fromCity} to ${bookingDetails.toCity}
-Dates: ${bookingDetails.startDate} - ${bookingDetails.endDate}
-Total: ₹${bookingDetails.totalAmount.toFixed(2)}
-
-Thank you for booking with us!`;
+${bookingDetails.fromCity}-${bookingDetails.toCity}
+${bookingDetails.startDate} to ${bookingDetails.endDate}
+Total: ₹${bookingDetails.totalAmount}`;
 
     // Send SMS using Twilio API
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
