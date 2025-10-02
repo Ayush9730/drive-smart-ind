@@ -27,8 +27,8 @@ export const UserRegistration = ({ onComplete, initialData }: UserRegistrationPr
 
     if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
-    else if (!/^[6-9]\d{9}$/.test(formData.phone.trim())) 
-      newErrors.phone = 'Enter valid 10-digit mobile number';
+    else if (!/^\+\d{1,3}\d{6,14}$/.test(formData.phone.trim())) 
+      newErrors.phone = 'Enter valid phone number in E.164 format (e.g., +919876543210)';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) 
       newErrors.email = 'Enter valid email address';
@@ -73,14 +73,15 @@ export const UserRegistration = ({ onComplete, initialData }: UserRegistrationPr
           </div>
 
           <div>
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="phone">Phone Number (E.164 format)</Label>
             <Input
               id="phone"
               value={formData.phone}
               onChange={(e) => handleInputChange('phone', e.target.value)}
-              placeholder="Enter 10-digit mobile number"
+              placeholder="+919876543210"
               className={errors.phone ? 'border-destructive' : ''}
             />
+            <p className="text-xs text-muted-foreground mt-1">Include country code (e.g., +91 for India)</p>
             {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone}</p>}
           </div>
 
