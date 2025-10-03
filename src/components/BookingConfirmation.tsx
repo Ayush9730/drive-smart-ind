@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Mail, Calendar, MapPin, Car, User, CreditCard, Phone } from 'lucide-react';
+import { CheckCircle, Calendar, MapPin, Car, User, CreditCard, Phone } from 'lucide-react';
 import { Booking } from '../types/rental';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -17,39 +17,6 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
   const { toast } = useToast();
   const [smsStatus, setSmsStatus] = useState<'sending' | 'sent' | 'failed'>('sending');
 
-  const simulateEmailSend = () => {
-    // Simulate email sending
-    console.log(`
-      Email sent to: ${booking.user.email}
-      
-      Subject: Car Rental Booking Confirmation - ${booking.id}
-      
-      Dear ${booking.user.name},
-      
-      Greetings from DriveSmartRental! 
-      
-      We are delighted to confirm your car rental booking. Your journey starts here, and we're excited to be part of it!
-      
-      BOOKING DETAILS:
-      Booking ID: ${booking.id}
-      Car: ${booking.car.name} (${booking.car.category})
-      Route: ${booking.fromCity} to ${booking.toCity}
-      Duration: ${booking.startDate} to ${booking.endDate} (${booking.duration} days)
-      Distance: ${booking.distance} km
-      Driver: ${booking.needDriver ? 'Included' : 'Self-drive'}
-      Total Amount: ₹${booking.totalAmount.toLocaleString()}
-      Deposit: ₹${booking.deposit.toLocaleString()}
-      
-      Your car will be ready for pickup on ${booking.startDate}. Please carry your driving license and a valid ID for verification.
-      
-      We hope you have a safe and comfortable journey. Thank you for choosing DriveSmartRental for your travel needs. We look forward to serving you again!
-      
-      Best regards,
-      DriveSmartRental Team
-      
-      Need help? Contact us anytime!
-    `);
-  };
 
   const sendBookingSMS = async () => {
     try {
@@ -94,9 +61,8 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
     }
   };
 
-  // Send email and SMS on component mount
+  // Send SMS on component mount
   useEffect(() => {
-    simulateEmailSend();
     sendBookingSMS();
   }, []);
 
@@ -173,19 +139,6 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Email Confirmation */}
-      <Card className="mb-4 bg-blue-50 border-blue-200">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-center space-x-2 text-blue-700">
-            <Mail className="w-5 h-5" />
-            <span className="font-medium">Confirmation email sent to {booking.user.email}</span>
-          </div>
-          <p className="text-sm text-blue-600 mt-2">
-            Please check your inbox for detailed booking information and pickup instructions.
-          </p>
         </CardContent>
       </Card>
 
