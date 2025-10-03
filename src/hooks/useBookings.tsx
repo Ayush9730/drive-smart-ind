@@ -75,21 +75,30 @@ export const useBookings = (userId: string | undefined) => {
         return;
       }
 
-      // Fetch user profile
-      const { data: profileData, error: profileError } = await supabase
+      // Get all unique user IDs from bookings
+      const userIds = [...new Set(bookingsData.map(b => b.user_id))];
+
+      // Fetch all profiles for these users
+      const { data: profilesData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+        .in('user_id', userIds);
 
       if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Error fetching profile:', profileError);
+        console.error('Error fetching profiles:', profileError);
       }
 
-      // Transform bookings with user profile data
-      const transformedBookings = bookingsData.map(booking => 
-        transformBookingFromDB(booking, profileData || undefined)
+      // Create a map of user_id to profile
+      const profileMap = new Map(
+        (profilesData || []).map(p => [p.user_id, p])
       );
+
+      // Transform bookings with their respective user profile data
+      const transformedBookings = bookingsData.map(booking => {
+        const userProfile = profileMap.get(booking.user_id);
+        return transformBookingFromDB(booking, userProfile);
+      });
+      
       setBookings(transformedBookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
