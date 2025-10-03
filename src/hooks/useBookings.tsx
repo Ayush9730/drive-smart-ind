@@ -11,6 +11,7 @@ type BookingRow = Database['public']['Tables']['bookings']['Row'];
 export const useBookings = (userId: string | undefined) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
 
   const transformBookingFromDB = (row: BookingRow, userProfile?: { name: string; phone: string; email: string; driving_license: string }): Booking => {
@@ -51,6 +52,24 @@ export const useBookings = (userId: string | undefined) => {
     };
   };
 
+  const checkAdminStatus = async () => {
+    if (!userId) return false;
+    
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+      
+      return !!data;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
+
   const fetchBookings = async () => {
     if (!userId) {
       setLoading(false);
@@ -58,12 +77,22 @@ export const useBookings = (userId: string | undefined) => {
     }
 
     try {
-      // Fetch bookings
-      const { data: bookingsData, error: bookingsError } = await supabase
+      // Check if user is admin
+      const adminStatus = await checkAdminStatus();
+      setIsAdmin(adminStatus);
+
+      // Build query - admins see all bookings, regular users see only their own
+      let query = supabase
         .from('bookings')
         .select('*')
-        .eq('user_id', userId)
         .order('created_at', { ascending: false });
+
+      // If not admin, filter by user_id
+      if (!adminStatus) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data: bookingsData, error: bookingsError } = await query;
 
       if (bookingsError) {
         console.error('Error fetching bookings:', bookingsError);
@@ -185,6 +214,7 @@ export const useBookings = (userId: string | undefined) => {
   return {
     bookings,
     loading,
+    isAdmin,
     saveBooking,
     refetchBookings: fetchBookings,
   };
