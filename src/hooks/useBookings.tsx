@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Booking } from '@/types/rental';
 import { Database } from '@/integrations/supabase/types';
+import { cars } from '@/data/carData';
 
 type BookingInsert = Database['public']['Tables']['bookings']['Insert'];
 type BookingRow = Database['public']['Tables']['bookings']['Row'];
@@ -12,21 +13,24 @@ export const useBookings = (userId: string | undefined) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const transformBookingFromDB = (row: BookingRow): Booking => {
+  const transformBookingFromDB = (row: BookingRow, userProfile?: { name: string; phone: string; email: string; driving_license: string }): Booking => {
+    // Find car image from car data
+    const carData = cars.find(c => c.id === row.car_id);
+    
     return {
       id: row.booking_id,
       user: {
-        name: '', // Will be populated separately if needed
-        phone: '',
-        email: '',
-        drivingLicense: '',
+        name: userProfile?.name || '',
+        phone: userProfile?.phone || '',
+        email: userProfile?.email || '',
+        drivingLicense: userProfile?.driving_license || '',
       },
       car: {
         id: row.car_id,
         name: row.car_name,
         category: row.car_category as 'hatchback' | 'sedan' | 'xl' | 'luxury',
         passengers: row.car_passengers,
-        image: '', // Will be populated from car data
+        image: carData?.image || '',
         basePrice: parseFloat(row.car_base_price.toString()),
         pricePerKm: parseFloat(row.car_price_per_km.toString()),
         available: true,
@@ -54,14 +58,15 @@ export const useBookings = (userId: string | undefined) => {
     }
 
     try {
-      const { data, error } = await supabase
+      // Fetch bookings
+      const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching bookings:', error);
+      if (bookingsError) {
+        console.error('Error fetching bookings:', bookingsError);
         toast({
           variant: "destructive",
           title: "Error",
@@ -70,7 +75,21 @@ export const useBookings = (userId: string | undefined) => {
         return;
       }
 
-      const transformedBookings = data.map(transformBookingFromDB);
+      // Fetch user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error fetching profile:', profileError);
+      }
+
+      // Transform bookings with user profile data
+      const transformedBookings = bookingsData.map(booking => 
+        transformBookingFromDB(booking, profileData || undefined)
+      );
       setBookings(transformedBookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
