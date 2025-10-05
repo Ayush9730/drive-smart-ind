@@ -77,22 +77,12 @@ export const useBookings = (userId: string | undefined) => {
     }
 
     try {
-      // Check if user is admin
-      const adminStatus = await checkAdminStatus();
-      setIsAdmin(adminStatus);
-
-      // Build query - admins see all bookings, regular users see only their own
-      let query = supabase
+      // Fetch all bookings - RLS will handle filtering based on user role
+      // Admins will see all bookings, regular users will see only their own
+      const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
         .order('created_at', { ascending: false });
-
-      // If not admin, filter by user_id
-      if (!adminStatus) {
-        query = query.eq('user_id', userId);
-      }
-
-      const { data: bookingsData, error: bookingsError } = await query;
 
       if (bookingsError) {
         console.error('Error fetching bookings:', bookingsError);
@@ -107,7 +97,7 @@ export const useBookings = (userId: string | undefined) => {
       // Get all unique user IDs from bookings
       const userIds = [...new Set(bookingsData.map(b => b.user_id))];
 
-      // Fetch all profiles for these users
+      // Fetch all profiles for these users - RLS will handle access control
       const { data: profilesData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
