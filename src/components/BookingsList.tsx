@@ -77,9 +77,9 @@ export const BookingsList = ({ bookings, onBack }: BookingsListProps) => {
                 <div className="flex items-center space-x-2">
                   <Car className="w-5 h-5 text-blue-600" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Cars Rented</p>
+                    <p className="text-sm text-muted-foreground">Total Cars Rented</p>
                     <p className="text-2xl font-bold">
-                      {new Set(bookings.map(b => b.car.id)).size}
+                      {bookings.length}
                     </p>
                   </div>
                 </div>
