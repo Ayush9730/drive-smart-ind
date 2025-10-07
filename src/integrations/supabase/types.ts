@@ -26,6 +26,10 @@ export type Database = {
           car_passengers: number
           car_price_per_km: number
           created_at: string
+          customer_driving_license: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
           deposit: number
           distance: number
           driver_charges: number
@@ -52,6 +56,10 @@ export type Database = {
           car_passengers: number
           car_price_per_km: number
           created_at?: string
+          customer_driving_license?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           deposit: number
           distance: number
           driver_charges?: number
@@ -78,6 +86,10 @@ export type Database = {
           car_passengers?: number
           car_price_per_km?: number
           created_at?: string
+          customer_driving_license?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
           deposit?: number
           distance?: number
           driver_charges?: number

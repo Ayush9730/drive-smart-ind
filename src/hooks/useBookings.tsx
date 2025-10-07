@@ -14,17 +14,17 @@ export const useBookings = (userId: string | undefined) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
 
-  const transformBookingFromDB = (row: BookingRow, userProfile?: { name: string; phone: string; email: string; driving_license: string }): Booking => {
+  const transformBookingFromDB = (row: BookingRow): Booking => {
     // Find car image from car data
     const carData = cars.find(c => c.id === row.car_id);
     
     return {
       id: row.booking_id,
       user: {
-        name: userProfile?.name || '',
-        phone: userProfile?.phone || '',
-        email: userProfile?.email || '',
-        drivingLicense: userProfile?.driving_license || '',
+        name: (row as any).customer_name || '',
+        phone: (row as any).customer_phone || '',
+        email: (row as any).customer_email || '',
+        drivingLicense: (row as any).customer_driving_license || '',
       },
       car: {
         id: row.car_id,
@@ -94,29 +94,10 @@ export const useBookings = (userId: string | undefined) => {
         return;
       }
 
-      // Get all unique user IDs from bookings
-      const userIds = [...new Set(bookingsData.map(b => b.user_id))];
-
-      // Fetch all profiles for these users - RLS will handle access control
-      const { data: profilesData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('user_id', userIds);
-
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Error fetching profiles:', profileError);
-      }
-
-      // Create a map of user_id to profile
-      const profileMap = new Map(
-        (profilesData || []).map(p => [p.user_id, p])
+      // Transform bookings (customer details are now stored in booking rows)
+      const transformedBookings = bookingsData.map(booking => 
+        transformBookingFromDB(booking)
       );
-
-      // Transform bookings with their respective user profile data
-      const transformedBookings = bookingsData.map(booking => {
-        const userProfile = profileMap.get(booking.user_id);
-        return transformBookingFromDB(booking, userProfile);
-      });
       
       setBookings(transformedBookings);
     } catch (error) {
