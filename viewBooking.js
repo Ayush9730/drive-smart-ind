@@ -7,17 +7,35 @@ config();
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_EMAIL = process.env.SUPABASE_EMAIL;
+const SUPABASE_PASSWORD = process.env.SUPABASE_PASSWORD;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Error: Missing Supabase credentials in .env file');
+if (!SUPABASE_URL || (!SUPABASE_ANON_KEY && !SUPABASE_SERVICE_ROLE_KEY)) {
+  console.error('Error: Missing Supabase credentials in .env file. Set VITE_SUPABASE_URL and either VITE_SUPABASE_PUBLISHABLE_KEY or SUPABASE_SERVICE_ROLE_KEY.');
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseKey = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+const usingServiceRole = Boolean(SUPABASE_SERVICE_ROLE_KEY);
+
+const supabase = createClient(SUPABASE_URL, supabaseKey);
 
 async function viewBookings() {
   try {
     console.log('Fetching bookings from database...\n');
+
+    // Authenticate if needed (RLS): prefer service role; otherwise sign in with email/password
+    if (!usingServiceRole && SUPABASE_EMAIL && SUPABASE_PASSWORD) {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: SUPABASE_EMAIL,
+        password: SUPABASE_PASSWORD,
+      });
+      if (authError) {
+        console.error('Authentication failed:', authError.message);
+        process.exit(1);
+      }
+    }
 
     const { data: bookings, error } = await supabase
       .from('bookings')
@@ -31,6 +49,9 @@ async function viewBookings() {
 
     if (!bookings || bookings.length === 0) {
       console.log('No bookings found in the database.');
+      if (!usingServiceRole && !(SUPABASE_EMAIL && SUPABASE_PASSWORD)) {
+        console.log('Tip: To view all bookings from the terminal, add SUPABASE_SERVICE_ROLE_KEY to your .env (server-only) or set SUPABASE_EMAIL and SUPABASE_PASSWORD to an admin account.');
+      }
       return;
     }
 
