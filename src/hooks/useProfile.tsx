@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User } from '@/types/rental';
@@ -21,13 +21,14 @@ export const useProfile = (userId: string | undefined) => {
     };
   };
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!userId) {
       setLoading(false);
       return;
     }
 
     try {
+      setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -36,11 +37,14 @@ export const useProfile = (userId: string | undefined) => {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to fetch profile.",
-        });
+        // Don't show toast for permission errors on initial load
+        if (error.code !== '42501') {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to fetch profile.",
+          });
+        }
         return;
       }
 
@@ -49,17 +53,12 @@ export const useProfile = (userId: string | undefined) => {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch profile.",
-      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, toast]);
 
-  const saveProfile = async (userData: User) => {
+  const saveProfile = async (userData: User): Promise<boolean> => {
     if (!userId) {
       toast({
         variant: "destructive",
@@ -84,10 +83,18 @@ export const useProfile = (userId: string | undefined) => {
 
       if (error) {
         console.error('Error saving profile:', error);
+        
+        let errorMessage = "Failed to save profile.";
+        if (error.code === '42501') {
+          errorMessage = "You don't have permission to save this profile.";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to save profile.",
+          description: errorMessage,
         });
         return false;
       }
@@ -103,7 +110,7 @@ export const useProfile = (userId: string | undefined) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to save profile.",
+        description: "Failed to save profile. Please try again.",
       });
       return false;
     }
@@ -111,7 +118,7 @@ export const useProfile = (userId: string | undefined) => {
 
   useEffect(() => {
     fetchProfile();
-  }, [userId]);
+  }, [fetchProfile]);
 
   return {
     profile,

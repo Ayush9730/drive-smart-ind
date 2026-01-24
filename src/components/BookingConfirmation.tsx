@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Calendar, MapPin, Car, User, CreditCard, Phone } from 'lucide-react';
+import { CheckCircle, Calendar, MapPin, Car, User, CreditCard, Phone, RefreshCw } from 'lucide-react';
 import { Booking } from '../types/rental';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -15,10 +15,18 @@ interface BookingConfirmationProps {
 
 export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: BookingConfirmationProps) => {
   const { toast } = useToast();
-  const [smsStatus, setSmsStatus] = useState<'sending' | 'sent' | 'failed'>('sending');
+  const [smsStatus, setSmsStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
 
+  const sendBookingSMS = useCallback(async () => {
+    // Validate phone number before attempting to send
+    if (!booking.user.phone || booking.user.phone.length < 10) {
+      console.log('Invalid phone number, skipping SMS');
+      setSmsStatus('failed');
+      return;
+    }
 
-  const sendBookingSMS = async () => {
+    setSmsStatus('sending');
+    
     try {
       console.log('Sending SMS to:', booking.user.phone);
       
@@ -41,11 +49,8 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
       if (error) {
         console.error('SMS sending error:', error);
         setSmsStatus('failed');
-        toast({
-          variant: "destructive",
-          title: "SMS Failed",
-          description: "Failed to send booking confirmation SMS.",
-        });
+        // Don't show error toast for SMS failure - it's not critical
+        console.log('SMS failed but booking is confirmed');
         return;
       }
 
@@ -59,12 +64,16 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
       console.error('Error sending SMS:', error);
       setSmsStatus('failed');
     }
-  };
+  }, [booking, toast]);
 
   // Send SMS on component mount
   useEffect(() => {
     sendBookingSMS();
-  }, []);
+  }, [sendBookingSMS]);
+
+  const retrySMS = () => {
+    sendBookingSMS();
+  };
 
   return (
     <div className="max-w-2xl mx-auto text-center">
@@ -89,7 +98,7 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
                 <User className="w-4 h-4 mr-2" />
                 Customer Details
               </h3>
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-1 text-left">
                 <p><strong>Name:</strong> {booking.user.name}</p>
                 <p><strong>Phone:</strong> {booking.user.phone}</p>
                 <p><strong>Email:</strong> {booking.user.email}</p>
@@ -103,7 +112,7 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
                 <Car className="w-4 h-4 mr-2" />
                 Car Details
               </h3>
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-1 text-left">
                 <p><strong>Car:</strong> {booking.car.name}</p>
                 <p><strong>Category:</strong> {booking.car.category}</p>
                 <p><strong>Passengers:</strong> {booking.car.passengers}</p>
@@ -117,7 +126,7 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
                 <MapPin className="w-4 h-4 mr-2" />
                 Journey Details
               </h3>
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-1 text-left">
                 <p><strong>Route:</strong> {booking.fromCity} → {booking.toCity}</p>
                 <p><strong>Distance:</strong> {booking.distance} km</p>
                 <p><strong>Duration:</strong> {booking.duration} days</p>
@@ -131,7 +140,7 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
                 <CreditCard className="w-4 h-4 mr-2" />
                 Payment Details
               </h3>
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-1 text-left">
                 <p><strong>Total Amount:</strong> ₹{booking.totalAmount.toLocaleString()}</p>
                 <p><strong>Deposit:</strong> ₹{booking.deposit.toLocaleString()}</p>
                 <p><strong>Booking Date:</strong> {booking.bookingDate}</p>
@@ -143,21 +152,34 @@ export const BookingConfirmation = ({ booking, onNewBooking, onViewBookings }: B
       </Card>
 
       {/* SMS Confirmation */}
-      <Card className={`mb-6 ${smsStatus === 'sent' ? 'bg-green-50 border-green-200' : smsStatus === 'failed' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
+      <Card className={`mb-6 ${smsStatus === 'sent' ? 'bg-green-50 border-green-200' : smsStatus === 'failed' ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'}`}>
         <CardContent className="p-4">
-          <div className={`flex items-center justify-center space-x-2 ${smsStatus === 'sent' ? 'text-green-700' : smsStatus === 'failed' ? 'text-red-700' : 'text-yellow-700'}`}>
+          <div className={`flex items-center justify-center space-x-2 ${smsStatus === 'sent' ? 'text-green-700' : smsStatus === 'failed' ? 'text-yellow-700' : 'text-blue-700'}`}>
             <Phone className="w-5 h-5" />
             <span className="font-medium">
+              {smsStatus === 'idle' && 'Preparing to send SMS...'}
               {smsStatus === 'sending' && `Sending SMS to ${booking.user.phone}...`}
               {smsStatus === 'sent' && `Booking confirmation SMS sent to ${booking.user.phone}`}
-              {smsStatus === 'failed' && `Failed to send SMS to ${booking.user.phone}`}
+              {smsStatus === 'failed' && `SMS notification unavailable`}
             </span>
           </div>
-          <p className={`text-sm mt-2 ${smsStatus === 'sent' ? 'text-green-600' : smsStatus === 'failed' ? 'text-red-600' : 'text-yellow-600'}`}>
+          <p className={`text-sm mt-2 ${smsStatus === 'sent' ? 'text-green-600' : smsStatus === 'failed' ? 'text-yellow-600' : 'text-blue-600'}`}>
+            {smsStatus === 'idle' && 'Initializing...'}
             {smsStatus === 'sending' && 'Please wait while we send your booking details...'}
             {smsStatus === 'sent' && 'Check your phone for booking details and pickup information.'}
-            {smsStatus === 'failed' && 'Please contact us for booking details.'}
+            {smsStatus === 'failed' && 'Your booking is confirmed! You can take a screenshot of this page for your records.'}
           </p>
+          {smsStatus === 'failed' && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={retrySMS}
+              className="mt-2"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry SMS
+            </Button>
+          )}
         </CardContent>
       </Card>
 
