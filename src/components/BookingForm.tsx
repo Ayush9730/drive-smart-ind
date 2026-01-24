@@ -89,6 +89,11 @@ export const BookingForm = ({ user, car, onComplete, onBack }: BookingFormProps)
     e.preventDefault();
     if (validateForm() && booking) {
       const now = new Date();
+      // Format date as YYYY-MM-DD for PostgreSQL
+      const bookingDate = now.toISOString().split('T')[0];
+      // Format time as HH:MM:SS for PostgreSQL
+      const bookingTime = now.toTimeString().split(' ')[0];
+      
       const bookingData: Booking = {
         id: `BK${Date.now()}`,
         user,
@@ -103,8 +108,8 @@ export const BookingForm = ({ user, car, onComplete, onBack }: BookingFormProps)
         distance: booking.distance,
         totalAmount: booking.totalAmount,
         deposit: booking.deposit,
-        bookingDate: now.toLocaleDateString('en-IN'),
-        bookingTime: now.toLocaleTimeString('en-IN'),
+        bookingDate,
+        bookingTime,
         status: 'confirmed',
       };
       onComplete(bookingData);
