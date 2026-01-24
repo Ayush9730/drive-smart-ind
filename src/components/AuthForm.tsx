@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AuthFormProps {
   onAuthSuccess: () => void;
@@ -18,24 +19,72 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const clearError = () => setErrorMessage(null);
+
+  const getErrorMessage = (error: { message: string; status?: number }) => {
+    const msg = error.message.toLowerCase();
+    
+    if (msg.includes('invalid login credentials')) {
+      return 'Invalid email or password. Please check your credentials and try again.';
+    }
+    if (msg.includes('user already registered')) {
+      return 'This email is already registered. Please sign in instead.';
+    }
+    if (msg.includes('email not confirmed')) {
+      return 'Please check your email and confirm your account before signing in.';
+    }
+    if (msg.includes('invalid email')) {
+      return 'Please enter a valid email address.';
+    }
+    if (msg.includes('password')) {
+      return 'Password must be at least 6 characters long.';
+    }
+    if (msg.includes('rate limit') || msg.includes('too many')) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
+    return error.message;
+  };
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearError();
     setLoading(true);
+
+    // Client-side validation
+    if (!validateEmail(email)) {
+      setErrorMessage('Please enter a valid email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters long.');
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
 
         if (error) {
+          const friendlyMessage = getErrorMessage(error);
+          setErrorMessage(friendlyMessage);
           toast({
             variant: "destructive",
             title: "Login Failed",
-            description: error.message,
+            description: friendlyMessage,
           });
           return;
         }
@@ -47,6 +96,7 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
         onAuthSuccess();
       } else {
         if (password !== confirmPassword) {
+          setErrorMessage('Passwords do not match.');
           toast({
             variant: "destructive",
             title: "Password Mismatch",
@@ -55,19 +105,10 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
           return;
         }
 
-        if (password.length < 6) {
-          toast({
-            variant: "destructive",
-            title: "Weak Password",
-            description: "Password must be at least 6 characters long.",
-          });
-          return;
-        }
-
         const redirectUrl = `${window.location.origin}/`;
         
-        const { error } = await supabase.auth.signUp({
-          email,
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: redirectUrl
@@ -75,21 +116,33 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
         });
 
         if (error) {
+          const friendlyMessage = getErrorMessage(error);
+          setErrorMessage(friendlyMessage);
           toast({
             variant: "destructive",
             title: "Signup Failed",
-            description: error.message,
+            description: friendlyMessage,
           });
           return;
         }
 
-        toast({
-          title: "Account Created!",
-          description: "Please check your email to verify your account.",
-        });
-        onAuthSuccess();
+        // Check if user was created but needs confirmation
+        if (data.user && !data.session) {
+          toast({
+            title: "Account Created!",
+            description: "Please check your email to verify your account.",
+          });
+        } else {
+          toast({
+            title: "Account Created!",
+            description: "Welcome to DriveSmartRental!",
+          });
+          onAuthSuccess();
+        }
       }
     } catch (error) {
+      console.error('Auth error:', error);
+      setErrorMessage('An unexpected error occurred. Please try again.');
       toast({
         variant: "destructive",
         title: "Error",
@@ -98,6 +151,13 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const switchMode = () => {
+    setIsLogin(!isLogin);
+    clearError();
+    setPassword('');
+    setConfirmPassword('');
   };
 
   return (
@@ -115,6 +175,13 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
           </p>
         </CardHeader>
         <CardContent>
+          {errorMessage && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -122,9 +189,13 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  clearError();
+                }}
                 placeholder="Enter your email"
                 required
+                autoComplete="email"
               />
             </div>
 
@@ -135,9 +206,13 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    clearError();
+                  }}
                   placeholder="Enter your password"
                   required
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                 />
                 <Button
                   type="button"
@@ -162,9 +237,13 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                   id="confirmPassword"
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    clearError();
+                  }}
                   placeholder="Confirm your password"
                   required
+                  autoComplete="new-password"
                 />
               </div>
             )}
@@ -181,7 +260,7 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
               <Button
                 type="button"
                 variant="link"
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={switchMode}
               >
                 {isLogin 
                   ? "Don't have an account? Sign up" 

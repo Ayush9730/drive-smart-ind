@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Booking } from '@/types/rental';
@@ -52,7 +52,7 @@ export const useBookings = (userId: string | undefined) => {
     };
   };
 
-  const checkAdminStatus = async () => {
+  const checkAdminStatus = useCallback(async () => {
     if (!userId) return false;
     
     try {
@@ -68,17 +68,22 @@ export const useBookings = (userId: string | undefined) => {
       console.error('Error checking admin status:', error);
       return false;
     }
-  };
+  }, [userId]);
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     if (!userId) {
       setLoading(false);
       return;
     }
 
     try {
+      setLoading(true);
+      
+      // Check admin status
+      const adminStatus = await checkAdminStatus();
+      setIsAdmin(adminStatus);
+
       // Fetch all bookings - RLS will handle filtering based on user role
-      // Admins will see all bookings, regular users will see only their own
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
@@ -86,33 +91,31 @@ export const useBookings = (userId: string | undefined) => {
 
       if (bookingsError) {
         console.error('Error fetching bookings:', bookingsError);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to fetch bookings.",
-        });
+        // Don't show toast for initial load errors
+        if (bookingsError.code !== 'PGRST116') {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to fetch bookings. Please try again.",
+          });
+        }
         return;
       }
 
       // Transform bookings (customer details are now stored in booking rows)
-      const transformedBookings = bookingsData.map(booking => 
+      const transformedBookings = (bookingsData || []).map(booking => 
         transformBookingFromDB(booking)
       );
       
       setBookings(transformedBookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch bookings.",
-      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, checkAdminStatus, toast]);
 
-  const saveBooking = async (booking: Booking) => {
+  const saveBooking = async (booking: Booking): Promise<boolean> => {
     if (!userId) {
       toast({
         variant: "destructive",
@@ -153,14 +156,26 @@ export const useBookings = (userId: string | undefined) => {
 
       if (error) {
         console.error('Error saving booking:', error);
+        
+        // Provide more specific error messages
+        let errorMessage = "Failed to save booking.";
+        if (error.code === '23505') {
+          errorMessage = "This booking ID already exists.";
+        } else if (error.code === '42501') {
+          errorMessage = "You don't have permission to create bookings.";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Failed to save booking.",
+          title: "Booking Error",
+          description: errorMessage,
         });
         return false;
       }
 
+      // Update local state with the new booking
       setBookings(prev => [booking, ...prev]);
       toast({
         title: "Success",
@@ -172,7 +187,7 @@ export const useBookings = (userId: string | undefined) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to save booking.",
+        description: "Failed to save booking. Please try again.",
       });
       return false;
     }
@@ -180,7 +195,7 @@ export const useBookings = (userId: string | undefined) => {
 
   useEffect(() => {
     fetchBookings();
-  }, [userId]);
+  }, [fetchBookings]);
 
   return {
     bookings,
